@@ -12,18 +12,34 @@ This repository serves as the single source of truth for all operational command
 
 **Repository Goal**: Provide a unified, secure, auditable, and extensible control layer so that any operator (human or AI agent) can discover, execute, and monitor commands across the full stack from one place.
 
-## Quick Start
+## Quick Start (Updated - June 2026)
 
 ```bash
-# Clone the control panel (once local tools/scripts added)
-git clone https://github.com/digitaldesignerjazz/nexus-control-panel.git
-cd nexus-control-panel
+# Clone
+ git clone https://github.com/digitaldesignerjazz/nexus-control-panel.git
+ cd nexus-control-panel
 
-# Example future usage (CLI placeholder)
-./nexus-ctl --help
-./nexus-ctl mesh status --node all
-./nexus-ctl agents swarm deploy --config swarm-alpha.yaml
+# Make the unified CLI executable
+ chmod +x nexus-ctl
+
+# Explore
+ ./nexus-ctl --help
+ ./nexus-ctl --version
+
+# Live commands (mesh status & system status now query real tools)
+ ./nexus-ctl mesh status --node all
+ ./nexus-ctl system status
+
+# Safe dry-run example
+ ./nexus-ctl mesh restart --service yggdrasil --dry-run
+
+# Other categories (rich placeholders + full spec in this file)
+ ./nexus-ctl agents list --swarm alpha
+ ./nexus-ctl blockchain status --coin xcoin
+ ./nexus-ctl hardware status --device soilnova-01
 ```
+
+**Note**: `mesh status` currently shows Yggdrasil self/peers + Docker containers matching nexus/yggdrasil/tenda. More mesh views (Tenda Nova, QNET sync, bandwidth) coming in Phase 2.
 
 ## Command Categories & Registry
 
@@ -35,10 +51,11 @@ All commands are organized by domain for easy discovery and maintenance. Each ca
 
 **Core Commands** (examples to be implemented):
 
-| Command | Description | Example |\n|---------|-------------|---------|
+| Command | Description | Example |
+|---------|-------------|---------|
 | `mesh status` | Show node health, peers, routes, bandwidth | `nexus-ctl mesh status --verbose` |
 | `mesh peer add/remove` | Manage peer connections | `nexus-ctl mesh peer add --pubkey <key> --addr <ip:port>` |
-| `mesh restart` | Restart Yggdrasil/Tenda/Docker services | `nexus-ctl mesh restart --service yggdrasil` |
+| `mesh restart` | Restart Yggdrasil/Tenda/Docker services (with confirmation + --force) | `nexus-ctl mesh restart --service yggdrasil --dry-run` |
 | `mesh config apply` | Push new configuration (e.g. via Docker compose or yggdrasil.conf) | `nexus-ctl mesh config apply --file nova-net.yaml` |
 | `mesh monitor start` | Launch real-time monitoring dashboard or exporter | `nexus-ctl mesh monitor --prometheus` |
 | `mesh privacy enable` | Activate Tor/I2P tunneling for specific traffic | `nexus-ctl mesh privacy enable --layer i2p` |
@@ -121,7 +138,7 @@ All commands are organized by domain for easy discovery and maintenance. Each ca
 
 The control panel is designed to be multi-modal:
 
-- **CLI** (`nexus-ctl`): Primary for scripting, automation, SSH/remote ops. (Python or Rust implementation)
+- **CLI** (`nexus-ctl` at repo root): Primary for scripting, automation, SSH/remote ops. Currently supports real `mesh status`, `system status`, `mesh restart --dry-run`. Python implementation for rapid integration; future Rust + egui version for GUI parity with Grok Launcher.
 - **TUI / egui GUI** (`nexus-ctl-gui`): Rich interactive terminal or native GUI inspired by Grok Launcher (Rust + egui). Real-time dashboards, graphs, command palettes.
 - **Web Dashboard**: Optional self-hosted web UI (perhaps using egui web or separate frontend) for visual control from any device.
 - **Agent API / MCP**: Expose as MCP (Model Context Protocol) or OpenAI-compatible tool-calling endpoint so AI agents (Grok, Liaura, swarms) can natively call these commands.
@@ -144,12 +161,12 @@ Because these are **control commands** with real impact on infrastructure, agent
 
 ## Implementation Roadmap
 
-1. **Phase 1 (Current)**: Repository skeleton + comprehensive command registry documentation (this file). Define command taxonomy.
-2. **Phase 2**: Core CLI implementation (`nexus-ctl`) in Rust (to match Grok Launcher) or Python for rapid prototyping. Basic mesh + system commands.
-3. **Phase 3**: egui-based GUI / TUI with live monitoring, command history, favorites.
-4. **Phase 4**: Agent-native API + MCP tool definitions so swarms can self-orchestrate.
-5. **Phase 5**: Web dashboard, mobile companion, voice integration, full playbook automation.
-6. **Phase 6**: Enterprise features for Esslinger & Co. / Delaware C-Corp ops (multi-user, compliance, billing integration).
+1. **Phase 1 (Current)**: Repository skeleton + comprehensive command registry documentation + working `nexus-ctl` CLI with live mesh/system queries. Define command taxonomy.
+2. **Phase 2**: Expand real implementations for mesh (Tenda, QNET, bandwidth, routes), agents (basic list/deploy), blockchain (status queries), hardware stubs. Add JSON output, config file support, logging.
+3. **Phase 3**: egui-based GUI / TUI with live monitoring, command history, favorites, dark theme matching Grok Launcher.
+4. **Phase 4**: Agent-native API + MCP tool definitions so swarms can self-orchestrate using these commands.
+5. **Phase 5**: Web dashboard, mobile companion, voice integration, full playbook automation engine.
+6. **Phase 6**: Enterprise features for Esslinger & Co. / Delaware C-Corp ops (multi-user, compliance reporting, billing integration, audit dashboards).
 
 ## Contributing
 
@@ -157,7 +174,7 @@ To add a new command or category:
 
 1. Create or update the relevant `docs/<category>-commands.md`
 2. Add example usage and edge cases
-3. If implementing, add script or code under `scripts/` or `src/`
+3. If implementing, add or improve code under `nexus-ctl` or `scripts/`
 4. Update this CONTROL-COMMANDS.md registry table
 5. Open PR with clear description of impact and security considerations
 
@@ -165,7 +182,7 @@ To add a new command or category:
 
 ## Related Projects
 
-- Grok Launcher: https://github.com/digitaldesignerjazz/grok-launcher (or wherever hosted)
+- Grok Launcher: Rust + egui core (to be integrated as `hardware grok-launcher` subcommand)
 - xMesh / NovaNet / QNET mesh prototypes
 - Esslinger & Co. Delaware C-Corp infrastructure
 - Agent swarms and creative AI (Caitlin Hu roleplay sessions, Suno music, immersive stories)
