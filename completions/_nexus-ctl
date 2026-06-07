@@ -1,0 +1,102 @@
+#compdef nexus-ctl
+# Zsh completion for nexus-ctl
+# https://github.com/digitaldesignerjazz/nexus-control-panel
+
+_nexus_ctl() {
+    local -a categories mesh_actions agents_actions blockchain_actions hardware_actions system_actions
+
+    categories=(
+        'mesh:Mesh network controls (Yggdrasil, xMesh, NovaNet, QNET)'
+        'agents:AI agent & swarm controls'
+        'blockchain:XCoin/QCoin/QNET blockchain controls'
+        'hardware:Hardware & prototype device controls'
+        'system:Cross-cutting system, monitoring & orchestration'
+        'completion:Generate shell completion scripts'
+        'help:Show help'
+        'version:Show version'
+    )
+
+    mesh_actions=(
+        'status:Show mesh node health and peers'
+        'restart:Restart mesh services (with confirmation)'
+        'peer:Manage mesh peers'
+        'config:Apply mesh configuration'
+        'monitor:Start monitoring'
+        'privacy:Manage privacy layers (Tor/I2P)'
+        'qnet:QNET blockchain-mesh integration'
+    )
+
+    agents_actions=(
+        'list:List active agents and swarms'
+        'deploy:Deploy new agent or swarm'
+        'scale:Scale swarm size'
+        'introspect:Inspect agent state and emotions'
+        'improve:Trigger self-improvement'
+        'assign:Assign task to swarm'
+        'log:Tail agent logs'
+    )
+
+    blockchain_actions=(
+        'status:Show blockchain node/wallet status'
+        'tx:Send transaction or rune'
+        'arbitrage:Scan for arbitrage opportunities'
+        'qnet:Sync with QNET mesh'
+        'rune:Special rune operations'
+        'monitor:Set alerts'
+    )
+
+    hardware_actions=(
+        'status:Show hardware device status'
+        'control:Send actuator command'
+        'flash:OTA firmware update'
+        'calibrate:Run calibration'
+        'grok-launcher:Manage Grok Launcher instances'
+        'monitor:Stream hardware telemetry'
+    )
+
+    system_actions=(
+        'status:Overall system health'
+        'logs:Aggregate logs'
+        'auth:Manage access permissions'
+        'backup:Create backups'
+        'privacy-audit:Run privacy audit'
+        'orchestrate:Execute playbook'
+    )
+
+    _arguments -C \
+        '1: :->category' \
+        '*::arg:->args' \
+        '--help[Show help]' \
+        '--version[Show version]' \
+        '--dry-run[Show what would be executed]' \
+        '--json[JSON output (where supported)]' \
+        '--verbose[Verbose output]' \
+        '-v[Verbose output]'
+
+    case $state in
+        category)
+            _describe 'category' categories
+            ;;
+        args)
+            case $line[1] in
+                mesh)
+                    _describe 'mesh action' mesh_actions
+                    ;;
+                agents)
+                    _describe 'agents action' agents_actions
+                    ;;
+                blockchain)
+                    _describe 'blockchain action' blockchain_actions
+                    ;;
+                hardware)
+                    _describe 'hardware action' hardware_actions
+                    ;;
+                system)
+                    _describe 'system action' system_actions
+                    ;;
+            esac
+            ;;
+    esac
+}
+
+_nexus_ctl "$@"
