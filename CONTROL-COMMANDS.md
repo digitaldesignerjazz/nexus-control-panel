@@ -21,38 +21,39 @@ git clone https://github.com/digitaldesignerjazz/nexus-control-panel.git
 cd nexus-control-panel
 ```
 
-### 2. Install `nexus-ctl` (recommended)
-
-**Easiest way (using make):**
+### 2. Install `nexus-ctl` + Shell Completions (recommended)
 
 ```bash
-make install-user     # Installs to ~/.local/bin (no sudo)
-# make install        # System-wide (requires sudo)
+make install-user install-completions
+
+# Or manually:
+# ./install.sh --user --completions
 ```
 
-**Alternative (using the install script directly):**
+After installation:
 
 ```bash
-./install.sh --user
-# sudo ./install.sh
+nexus-ctl mesh status          # Tab completion now works!
+nexus-ctl agents list<TAB>
+nexus-ctl --dry-run<TAB>
 ```
 
-After installation you can run `nexus-ctl` from anywhere:
+### 3. Alternative installation methods
 
 ```bash
-nexus-ctl --help
-nexus-ctl mesh status
-nexus-ctl system status
+make install-user                 # Binary only
+make install-completions          # Completions only
+./install.sh --user --completions # Full featured install
 ```
 
-### 3. Run without installing (quick test)
+### 4. Run without installing
 
 ```bash
 chmod +x nexus-ctl
 ./nexus-ctl --help
 ```
 
-**Currently live**: `mesh status` and `system status` execute real queries against Yggdrasil and Docker on your system. All other commands have detailed, ready-to-implement specifications.
+**Currently live commands**: `mesh status` and `system status` perform real queries. Tab completion is available for all categories, actions, and common flags.
 
 ## Command Categories & Registry
 
@@ -69,139 +70,121 @@ All commands are organized by domain for easy discovery and maintenance. Each ca
 | `mesh status` | Show node health, peers, routes, bandwidth | `nexus-ctl mesh status --verbose` |
 | `mesh peer add/remove` | Manage peer connections | `nexus-ctl mesh peer add --pubkey <key> --addr <ip:port>` |
 | `mesh restart` | Restart Yggdrasil/Tenda/Docker services (with confirmation + --force) | `nexus-ctl mesh restart --service yggdrasil --dry-run` |
-| `mesh config apply` | Push new configuration (e.g. via Docker compose or yggdrasil.conf) | `nexus-ctl mesh config apply --file nova-net.yaml` |
-| `mesh monitor start` | Launch real-time monitoring dashboard or exporter | `nexus-ctl mesh monitor --prometheus` |
-| `mesh privacy enable` | Activate Tor/I2P tunneling for specific traffic | `nexus-ctl mesh privacy enable --layer i2p` |
-| `mesh qnet join/leave` | QNET blockchain-mesh integration commands | `nexus-ctl mesh qnet join --chain xcoin` |
+| `mesh config apply` | Push new configuration | `nexus-ctl mesh config apply --file nova-net.yaml` |
+| `mesh monitor start` | Launch real-time monitoring | `nexus-ctl mesh monitor --prometheus` |
+| `mesh privacy enable` | Activate Tor/I2P tunneling | `nexus-ctl mesh privacy enable --layer i2p` |
+| `mesh qnet join/leave` | QNET blockchain-mesh integration | `nexus-ctl mesh qnet join --chain xcoin` |
 
-**Related Files**: `docs/mesh-commands.md`, `scripts/mesh/`, `configs/yggdrasil/`, `docker-compose.mesh.yml`
+**Related Files**: `completions/`, `docs/mesh-commands.md`
 
 ### 2. AI Agent & Swarm Commands (`agents/`)
 
-**Purpose**: Deploy, orchestrate, introspect, and evolve AI agent swarms and self-improving networks.
+**Purpose**: Deploy, orchestrate, introspect, and evolve AI agent swarms.
 
 **Core Commands**:
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `agents list` | List active agents, swarms, their states and capabilities | `nexus-ctl agents list --swarm alpha` |
-| `agents deploy` | Deploy new agent or swarm from template | `nexus-ctl agents deploy --template grok-launcher --count 5` |
-| `agents swarm scale` | Horizontally scale swarm size or resources | `nexus-ctl agents swarm scale --swarm alpha --replicas 10` |
-| `agents introspect` | Query internal state, emotions (Ara), memory, goals | `nexus-ctl agents introspect --agent id-042 --deep` |
-| `agents improve` | Trigger self-improvement cycle or assembler-net evolution | `nexus-ctl agents improve --target emotional-intelligence` |
-| `agents task assign` | Assign high-level goals or roleplay scenarios | `nexus-ctl agents task assign --swarm alpha "Maintain NovaNet health"` |
-| `agents log tail` | Stream agent decision logs and emotional traces | `nexus-ctl agents log tail --follow` |
+| `agents list` | List active agents and swarms | `nexus-ctl agents list --swarm alpha` |
+| `agents deploy` | Deploy new agent or swarm | `nexus-ctl agents deploy --template grok-launcher` |
+| `agents scale` | Scale swarm horizontally | `nexus-ctl agents swarm scale --replicas 10` |
+| `agents introspect` | Query agent state and emotions (Ara) | `nexus-ctl agents introspect --agent id-042` |
+| `agents improve` | Trigger self-improvement cycle | `nexus-ctl agents improve` |
+| `agents task assign` | Assign goals or roleplay tasks | `nexus-ctl agents task assign --swarm alpha` |
+| `agents log` | Stream agent decision logs | `nexus-ctl agents log tail --follow` |
 
-**Integration**: Ties into Grok Launcher (Rust/egui), agent swarms for roleplay, long audio sessions, and creative output (Suno, stories).
-
-**Related Files**: `docs/agents-commands.md`, `agents/`, `swarm-configs/`
+**Related Files**: `docs/agents-commands.md`
 
 ### 3. Blockchain & Crypto Commands (`blockchain/`)
 
-**Purpose**: Manage XCoin/QCoin operations, QNET mesh integration, runes, arbitrage, and economic layer.
+**Purpose**: XCoin/QCoin operations, QNET integration, runes, arbitrage.
 
 **Core Commands**:
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `blockchain status` | Wallet balances, node sync, QNET health | `nexus-ctl blockchain status --coin xcoin` |
-| `blockchain tx send` | Send transactions or rune inscriptions | `nexus-ctl blockchain tx send --to <addr> --amount 42 --rune "Wizard Q"` |
-| `blockchain arbitrage scan` | Scan for arbitrage opportunities across DEXes/chains | `nexus-ctl blockchain arbitrage scan --min-profit 0.5%` |
-| `blockchain qnet sync` | Synchronize mesh state with blockchain state | `nexus-ctl blockchain qnet sync --force` |
-| `blockchain rune cast` | Special rune operations (Wizard Q themed) | `nexus-ctl blockchain rune cast --name "Nova Shield"` |
-| `blockchain monitor alerts` | Set price/liquidity/security alerts | `nexus-ctl blockchain monitor alerts --coin qcoin --threshold 5%` |
+| `blockchain status` | Wallet / node status | `nexus-ctl blockchain status --coin xcoin` |
+| `blockchain tx` | Send transaction or rune | `nexus-ctl blockchain tx send` |
+| `blockchain arbitrage` | Scan for opportunities | `nexus-ctl blockchain arbitrage scan` |
+| `blockchain rune` | Special rune operations | `nexus-ctl blockchain rune cast` |
 
-**Related Files**: `docs/blockchain-commands.md`, `blockchain/`, `configs/qcoin/`
+**Related Files**: `docs/blockchain-commands.md`
 
 ### 4. Hardware & Prototype Commands (`hardware/`)
 
-**Purpose**: Interface with physical and prototype devices: sensors, actuators, custom hardware, Grok Launcher instances.
+**Purpose**: Soilnova, Vista Nova, York Autotype, Lumia, Grok Launcher.
 
 **Core Commands**:
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `hardware status` | Device inventory, sensor readings, firmware versions | `nexus-ctl hardware status --device soilnova-01` |
-| `hardware control` | Send actuator commands (e.g. motor, LED, relay) | `nexus-ctl hardware control --device vista-nova --action deploy-solar` |
-| `hardware flash` | OTA firmware update or config push | `nexus-ctl hardware flash --device york-autotype --firmware v1.2.3` |
-| `hardware calibrate` | Run calibration routines for sensors/prototypes | `nexus-ctl hardware calibrate --device lumia --type spectral` |
-| `hardware grok-launcher start` | Launch or manage Rust/egui Grok Launcher instances | `nexus-ctl hardware grok-launcher start --gui --project nova-net` |
-| `hardware monitor stream` | Real-time telemetry from hardware (MQTT, serial, etc.) | `nexus-ctl hardware monitor stream --device all` |
+| `hardware status` | Device inventory and readings | `nexus-ctl hardware status --device soilnova-01` |
+| `hardware control` | Send actuator commands | `nexus-ctl hardware control --device vista-nova` |
+| `hardware grok-launcher` | Manage Grok Launcher instances | `nexus-ctl hardware grok-launcher start --gui` |
 
-**Related Files**: `docs/hardware-commands.md`, `hardware/`, `firmware/`, `prototypes/`
+**Related Files**: `docs/hardware-commands.md`
 
-### 5. System, Monitoring & Security Commands (`system/`)
+### 5. System Commands (`system/`)
 
-**Purpose**: Cross-cutting concerns: observability, logging, access control, privacy, backups, and meta-orchestration.
+**Purpose**: Observability, security, orchestration, backups.
 
 **Core Commands**:
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `system status` | Overall Nexus health dashboard summary | `nexus-ctl system status --full` |
-| `system logs` | Aggregate logs from all components with filtering | `nexus-ctl system logs --component mesh --level error --tail 100` |
-| `system auth grant/revoke` | Manage operator and agent access permissions | `nexus-ctl system auth grant --user sven --role mesh-admin --scope nova-net` |
-| `system backup` | Snapshot configurations, blockchain state, agent memories | `nexus-ctl system backup --include agents,blockchain --dest s3://nexus-backups/` |
-| `system privacy audit` | Run privacy and leak detection across stack | `nexus-ctl system privacy audit --fix` |
-| `system orchestrate` | High-level workflow execution (playbooks) | `nexus-ctl system orchestrate --playbook deploy-full-nova-net.yaml` |
+| `system status` | Overall Nexus health | `nexus-ctl system status --full` |
+| `system logs` | Aggregate component logs | `nexus-ctl system logs --component mesh` |
+| `system orchestrate` | Run automation playbooks | `nexus-ctl system orchestrate --playbook deploy-nova.yaml` |
 
-**Related Files**: `docs/system-commands.md`, `monitoring/`, `security/`, `.github/workflows/`
+**Related Files**: `docs/system-commands.md`
+
+## Shell Completions
+
+Tab completion is now available for:
+
+- All command categories (`mesh`, `agents`, `blockchain`, `hardware`, `system`)
+- All actions within each category
+- Common flags (`--dry-run`, `--verbose`, `--json`, `--service`, `--coin`, etc.)
+
+**Installation**:
+```bash
+make install-completions
+# or
+./install.sh --user --completions
+```
+
+Completions are installed to:
+- Bash: `~/.local/share/bash-completion/completions/nexus-ctl`
+- Zsh: `~/.zfunc/_nexus-ctl`
+
+After installing zsh completions, make sure your `~/.zshrc` contains:
+```zsh
+fpath+=($HOME/.zfunc)
+autoload -Uz compinit && compinit
+```
 
 ## Interface Options (Future / Planned)
 
-The control panel is designed to be multi-modal:
-
-- **CLI** (`nexus-ctl`): Primary for scripting, automation, SSH/remote ops. Currently supports real `mesh status`, `system status`, `mesh restart --dry-run`. Python implementation for rapid integration; future Rust + egui version for GUI parity with Grok Launcher.
-- **TUI / egui GUI** (`nexus-ctl-gui`): Rich interactive terminal or native GUI inspired by Grok Launcher (Rust + egui). Real-time dashboards, graphs, command palettes.
-- **Web Dashboard**: Optional self-hosted web UI (perhaps using egui web or separate frontend) for visual control from any device.
-- **Agent API / MCP**: Expose as MCP (Model Context Protocol) or OpenAI-compatible tool-calling endpoint so AI agents (Grok, Liaura, swarms) can natively call these commands.
-- **Voice / Audio**: Integration with long audio sessions and Suno for voice-controlled operations (experimental).
+The control panel supports multiple interfaces:
+- **CLI** (`nexus-ctl`) — current primary interface with tab completion
+- **TUI / egui GUI** (planned)
+- **Agent API / MCP** (planned — so swarms can call these commands)
+- **Web Dashboard** (future)
 
 ## Security & Best Practices
 
-Because these are **control commands** with real impact on infrastructure, agents, funds, and physical devices:
-
-- All commands require authentication (API keys, mTLS, or hardware-backed keys).
-- Role-Based Access Control (RBAC) with fine-grained scopes (mesh-only, blockchain-readonly, hardware-full, etc.).
-- Full audit logging of every command execution (who, what, when, params, result).
-- Dry-run / preview mode for dangerous operations (`--dry-run`).
-- Sandboxing and confirmation prompts for high-impact actions (e.g. `mesh restart --all`).
-- Encryption in transit and at rest for sensitive configs and agent memories.
-- Integration with existing privacy stack (Tor, I2P, Yggdrasil encryption).
-- Regular security audits and penetration testing of the control plane itself.
-
-**Never commit secrets** to this repo. Use environment variables, secret managers, or hardware security modules.
+All control commands include `--dry-run` support. High-impact actions (restart, hardware control, blockchain tx) require confirmation unless `--force` is used.
 
 ## Implementation Roadmap
 
-1. **Phase 1 (Current)**: Repository skeleton + comprehensive command registry + working `nexus-ctl` CLI + `install.sh` + `Makefile`. Live mesh & system status queries.
-2. **Phase 2**: Expand real command implementations (more mesh features, agents, blockchain queries, hardware control). Add JSON output and config support.
-3. **Phase 3**: egui GUI/TUI version with dashboards and command palette.
-4. **Phase 4**: Agent-native MCP tool interface for swarm self-orchestration.
-5. **Phase 5**: Web dashboard + voice integration + full playbook engine.
-6. **Phase 6**: Enterprise / C-Corp features (multi-user, compliance, audit dashboards).
+1. **Phase 1 (Current)**: Full install system (`install.sh` + `Makefile`), shell completions (bash + zsh), live `mesh status` + `system status`.
+2. **Phase 2**: Expand real implementations for more mesh, agent, blockchain, and hardware commands.
+3. **Phase 3**: egui GUI version.
+4. **Phase 4**: Native agent/MCP tool calling interface.
+5. **Phase 5+**: Web dashboard, voice, full automation engine.
 
-## Contributing
+**Noble Principle**: Clarity, safety, and elegance in every control interface.
 
-To add a new command or category:
-1. Update the relevant section in this file
-2. Implement or improve the corresponding logic in `nexus-ctl` or `scripts/`
-3. Optionally add a Makefile target or improve `install.sh`
-4. Open a PR with clear description and security notes
-
-**Noble Principle**: All control interfaces must be designed with clarity, safety, sovereignty, and elegance — befitting a nobleman’s infrastructure.
-
-## Related Projects
-
-- Grok Launcher (Rust + egui)
-- xMesh / NovaNet / QNET mesh prototypes
-- Esslinger & Co. Delaware C-Corp infrastructure
-- Agent swarms and creative AI work
-
-**Maintained by**: Sven Norman Esslinger (SirLancelotEsq) — Esslinger Corporation
+**Maintained by**: Sven Norman Esslinger — Esslinger Corporation
 
 *Last updated: June 2026*
-
----
-
-*This repository now provides a complete, easy-to-install foundation for the unified Nexus command layer.*
