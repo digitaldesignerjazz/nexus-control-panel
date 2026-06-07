@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """
-Nexus Control Panel CLI
-Unified command & control interface for the entire Nexus ecosystem.
-
-Supports --json for machine-readable output on supported commands.
+Nexus Control Panel CLI v0.4.0
+Improved mesh status with better output and richer JSON.
 """
 
 import argparse
@@ -11,9 +9,10 @@ import subprocess
 import sys
 import shutil
 import json
+import re
 from datetime import datetime, timezone
 
-VERSION = "0.3.0-json"
+VERSION = "0.4.0-mesh-status"
 
 
 def run_command(cmd, dry_run=False, capture_output=True):
@@ -21,84 +20,142 @@ def run_command(cmd, dry_run=False, capture_output=True):
         return {"dry_run": True, "command": " ".join(cmd)}
     try:
         result = subprocess.run(cmd, capture_output=capture_output, text=True, check=False)
-        return result.stdout.strip() + ("\n" + result.stderr.strip() if result.stderr else "")
+        return (result.stdout or "") + (result.stderr or "")
     except FileNotFoundError:
-        return f"[ERROR] Command not found: {cmd[0]}"
+        return f"[ERROR] {cmd[0]} not found"
 
 
-def get_yggdrasil_data():
-    data = {}
-    if shutil.which("yggdrasilctl"):
-        self_raw = run_command(["yggdrasilctl", "getSelf"])
-        peers_raw = run_command(["yggdrasilctl", "getPeers"])
-        data["self"] = self_raw
-        data["peers"] = peers_raw
-        data["available"] = True
-    else:
-        data["available"] = False
-        data["error"] = "yggdrasilctl not found"
+def parse_yggdrasil_self(raw_output):
+    """Extract key fields from yggdrasilctl getSelf output."""
+    data = {
+        "address": None,
+        "subnet": None,
+        "public_key": None,
+        "coords": None,
+        "mtu": None
+    }
+    if not raw_output or "ERROR" in raw_output:
+        return data
+
+    lines = raw_output.strip().splitlines()
+    for line in lines:
+        line = line.strip()
+        if line.startswith("IPv6 address:"):
+            data["address"] = line.split(":", 1)[1].strip()
+        elif line.startswith("IPv6 subnet:"):
+            data["subnet"] = line.split(":", 1)[1].strip()
+        elif line.startswith("Public key:"):
+            data["public_key"] = line.split(":", 1)[1].strip()
+        elif line.startswith("Coords:"):
+            data["coords"] = line.split(":", 1)[1].strip()
+        elif line.startswith("MTU:"):
+            data["mtu"] = line.split(":", 1)[1].strip()
     return data
 
 
-def get_docker_services(filter_name="nexus|yggdrasil|tenda"):
+def get_yggdrasil_summary():
+    if not shutil.which("yggdrasilctl"):
+        return {"available": False, "error": "yggdrasilctl not found"}
+
+    self_raw = run_command(["yggdrasilctl", "getSelf"])
+    peers_raw = run_command(["yggdrasilctl", "getPeers"])
+
+    parsed = parse_yggdrasil_self(self_raw)
+
+    # Count peers
+    peer_count = 0
+    if peers_raw and "ERROR" not in peers_raw:
+        peer_count = len([l for l in peers_raw.splitlines() if l.strip() and not l.startswith("-")])
+
+    return {
+        "available": True,
+        "self": parsed,
+        "peer_count": peer_count,
+        "raw_self": self_raw.strip(),
+        "raw_peers": peers_raw.strip()[:2000]  # limit size
+    }
+
+
+def get_docker_mesh_services():
     if not shutil.which("docker"):
         return {"available": False, "error": "docker not found"}
+
     try:
         output = subprocess.check_output(
-            ["docker", "ps", "--filter", f"name={filter_name}",
+            ["docker", "ps",
+             "--filter", "name=nexus|yggdrasil|tenda|nova",
              "--format", "{{.Names}}\t{{.Status}}\t{{.Ports}}"],
             text=True
         ).strip()
+
         services = []
         for line in output.splitlines():
-            parts = line.split("\t")
+            parts = [p.strip() for p in line.split("\t")]
             if len(parts) >= 2:
                 services.append({
                     "name": parts[0],
                     "status": parts[1],
                     "ports": parts[2] if len(parts) > 2 else ""
                 })
-        return {"available": True, "services": services}
+        return {"available": True, "count": len(services), "services": services}
     except Exception as e:
         return {"available": False, "error": str(e)}
 
 
 def cmd_mesh_status(args):
+    ygg = get_yggdrasil_summary()
+    docker = get_docker_mesh_services()
+
     if args.json:
         result = {
             "command": "mesh status",
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "node_filter": args.node,
-            "yggdrasil": get_yggdrasil_data(),
-            "docker": get_docker_services(),
+            "node_filter": getattr(args, "node", "all"),
+            "yggdrasil": ygg,
+            "docker": docker,
+            "overall_status": "healthy" if ygg.get("available") else "degraded"
         }
         print(json.dumps(result, indent=2))
         return
 
-    # Human readable output (existing)
+    # Human-readable output
     print("=== NEXUS MESH STATUS ===")
-    print(f"Node filter: {args.node}")
+    print(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print()
 
-    if shutil.which("yggdrasilctl"):
+    # Yggdrasil section
+    if ygg.get("available"):
         print("-- Yggdrasil --")
-        print(run_command(["yggdrasilctl", "getSelf"]))
-        print(run_command(["yggdrasilctl", "getPeers"]))
+        self_info = ygg.get("self", {})
+        if self_info.get("address"):
+            print(f"  Address   : {self_info['address']}")
+        if self_info.get("subnet"):
+            print(f"  Subnet    : {self_info['subnet']}")
+        if self_info.get("coords"):
+            print(f"  Coords    : {self_info['coords']}")
+        print(f"  Peers     : {ygg.get('peer_count', 0)}")
+        print()
     else:
-        print("[WARN] yggdrasilctl not found in PATH")
+        print("-- Yggdrasil --")
+        print("  Not available (yggdrasilctl not found or not running)")
+        print()
 
-    if shutil.which("docker"):
-        print("-- Docker Mesh Services --")
-        docker_out = run_command([
-            "docker", "ps",
-            "--filter", "name=nexus|yggdrasil|tenda",
-            "--format", "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-        ])
-        print(docker_out if docker_out.strip() else "No matching containers running.")
+    # Docker section
+    if docker.get("available"):
+        print("-- Docker Services --")
+        if docker.get("count", 0) > 0:
+            for svc in docker["services"]:
+                print(f"  {svc['name']:<25} {svc['status']}")
+        else:
+            print("  No matching mesh-related containers running.")
+        print()
     else:
-        print("[INFO] docker not found in PATH")
+        print("-- Docker --")
+        print("  docker not available")
+        print()
 
-    print("\n[INFO] Use --json for machine-readable output.")
+    print("[Tip] Use --json for machine-readable output")
+    print("[Tip] nexus-ctl mesh restart --service yggdrasil --dry-run")
 
 
 def cmd_system_status(args):
@@ -107,29 +164,29 @@ def cmd_system_status(args):
             "command": "system status",
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "host": {
-                "uname": run_command(["uname", "-a"]),
-                "uptime": run_command(["uptime"]),
-                "disk": run_command(["df", "-h"])
+                "uname": run_command(["uname", "-a"]).strip(),
+                "uptime": run_command(["uptime"]).strip(),
+                "disk": run_command(["df", "-h"]).strip()
             },
-            "docker": get_docker_services(filter_name=".*")
+            "docker": get_docker_mesh_services(filter_name=".*")
         }
         print(json.dumps(result, indent=2))
         return
 
-    # Human readable
     print("=== NEXUS SYSTEM STATUS ===")
-    print(f"Timestamp: {datetime.now().isoformat(timespec='seconds')}")
+    print(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print()
     print("-- Host --")
-    print(run_command(["uname", "-a"]))
-    print(run_command(["uptime"]))
-    print(run_command(["df", "-h"]))
+    print(run_command(["uname", "-a"]).strip())
+    print(run_command(["uptime"]).strip())
+    print()
+    print(run_command(["df", "-h"]).strip())
 
-    if shutil.which("docker"):
-        print("-- Docker --")
-        print(run_command(["docker", "ps", "--format", "table {{.Names}}\t{{.Status}}"]))
-
-    print("\n[INFO] Use --json for structured output.")
+    docker = get_docker_mesh_services(filter_name=".*")
+    if docker.get("available") and docker.get("count", 0) > 0:
+        print("\n-- Docker --")
+        for svc in docker["services"]:
+            print(f"  {svc['name']:<30} {svc['status']}")
 
 
 def cmd_mesh_restart(args):
@@ -138,42 +195,32 @@ def cmd_mesh_restart(args):
             "command": "mesh restart",
             "service": args.service,
             "dry_run": args.dry_run,
-            "status": "not_yet_implemented"
+            "status": "placeholder"
         }, indent=2))
         return
 
-    # existing human logic...
-    print("=== MESH RESTART ===")
-    if not args.force:
-        confirm = input(f"Restart mesh service '{args.service}'? [y/N]: ").strip().lower()
-        if confirm != "y":
-            print("Aborted.")
-            return
-    print(f"Restarting {args.service}... (placeholder)")
+    print(f"[mesh] Restarting {args.service}... (not yet fully implemented)")
 
 
 def cmd_generic_placeholder(category, action, args):
     if args.json:
         print(json.dumps({
             "command": f"{category} {action}",
-            "status": "not_implemented",
-            "message": f"{category} {action} is planned for Phase 2/3."
+            "status": "not_implemented"
         }, indent=2))
         return
-
-    print(f"[{category.upper()}] {action} is not yet fully implemented.")
-    print("See CONTROL-COMMANDS.md for specification.")
+    print(f"[{category}] {action} is planned for later phases.")
 
 
 def main():
     parser = argparse.ArgumentParser(
         prog="nexus-ctl",
-        description="Nexus Control Panel - Unified CLI for the Nexus ecosystem.",
-        epilog="Supports --json for scripting and agent integration."
+        description="Nexus Control Panel CLI",
+        epilog="Use --json for structured output. Tab completion supported."
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
     parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("--json", action="store_true", help="Output in JSON format (where supported)")
+    parser.add_argument("--json", action="store_true", help="Output JSON (supported on mesh/system status)")
     parser.add_argument("--verbose", "-v", action="store_true")
 
     subparsers = parser.add_subparsers(dest="category", required=True)
@@ -191,13 +238,12 @@ def main():
     # agents
     agents_p = subparsers.add_parser("agents")
     agents_p.add_argument("action", choices=["list", "deploy", "scale", "introspect", "improve", "assign", "log"])
-    agents_p.add_argument("--swarm")
     agents_p.set_defaults(func=lambda a: cmd_generic_placeholder("agents", a.action, a))
 
     # blockchain
     blockchain_p = subparsers.add_parser("blockchain")
     blockchain_p.add_argument("action", choices=["status", "tx", "arbitrage", "qnet", "rune", "monitor"])
-    blockchain_p.add_argument("--coin", default="xcoin", choices=["xcoin", "qcoin"])
+    blockchain_p.add_argument("--coin", default="xcoin")
     blockchain_p.set_defaults(func=lambda a: cmd_generic_placeholder("blockchain", a.action, a))
 
     # hardware
