@@ -12,34 +12,40 @@ This repository serves as the single source of truth for all operational command
 
 **Repository Goal**: Provide a unified, secure, auditable, and extensible control layer so that any operator (human or AI agent) can discover, execute, and monitor commands across the full stack from one place.
 
-## Quick Start (Updated - June 2026)
+## Quick Start
+
+### 1. Clone the repository
 
 ```bash
-# Clone
- git clone https://github.com/digitaldesignerjazz/nexus-control-panel.git
- cd nexus-control-panel
-
-# Make the unified CLI executable
- chmod +x nexus-ctl
-
-# Explore
- ./nexus-ctl --help
- ./nexus-ctl --version
-
-# Live commands (mesh status & system status now query real tools)
- ./nexus-ctl mesh status --node all
- ./nexus-ctl system status
-
-# Safe dry-run example
- ./nexus-ctl mesh restart --service yggdrasil --dry-run
-
-# Other categories (rich placeholders + full spec in this file)
- ./nexus-ctl agents list --swarm alpha
- ./nexus-ctl blockchain status --coin xcoin
- ./nexus-ctl hardware status --device soilnova-01
+git clone https://github.com/digitaldesignerjazz/nexus-control-panel.git
+cd nexus-control-panel
 ```
 
-**Note**: `mesh status` currently shows Yggdrasil self/peers + Docker containers matching nexus/yggdrasil/tenda. More mesh views (Tenda Nova, QNET sync, bandwidth) coming in Phase 2.
+### 2. Install `nexus-ctl` (recommended)
+
+```bash
+# Recommended: user-local install (no sudo required)
+./install.sh --user
+
+# Or system-wide (may require sudo)
+# sudo ./install.sh
+
+# Then use it from anywhere:
+nexus-ctl --help
+nexus-ctl mesh status
+nexus-ctl system status
+```
+
+### 3. Alternative: Run directly without installing
+
+```bash
+chmod +x nexus-ctl
+./nexus-ctl --help
+./nexus-ctl mesh status --node all
+./nexus-ctl system status
+```
+
+**Live commands today**: `mesh status` and `system status` query real tools on your system (Yggdrasil + Docker). Other categories have rich, helpful placeholders.
 
 ## Command Categories & Registry
 
@@ -138,7 +144,7 @@ All commands are organized by domain for easy discovery and maintenance. Each ca
 
 The control panel is designed to be multi-modal:
 
-- **CLI** (`nexus-ctl` at repo root): Primary for scripting, automation, SSH/remote ops. Currently supports real `mesh status`, `system status`, `mesh restart --dry-run`. Python implementation for rapid integration; future Rust + egui version for GUI parity with Grok Launcher.
+- **CLI** (`nexus-ctl`): Primary for scripting, automation, SSH/remote ops. Currently supports real `mesh status`, `system status`, `mesh restart --dry-run`. Python implementation for rapid integration; future Rust + egui version for GUI parity with Grok Launcher.
 - **TUI / egui GUI** (`nexus-ctl-gui`): Rich interactive terminal or native GUI inspired by Grok Launcher (Rust + egui). Real-time dashboards, graphs, command palettes.
 - **Web Dashboard**: Optional self-hosted web UI (perhaps using egui web or separate frontend) for visual control from any device.
 - **Agent API / MCP**: Expose as MCP (Model Context Protocol) or OpenAI-compatible tool-calling endpoint so AI agents (Grok, Liaura, swarms) can natively call these commands.
@@ -161,7 +167,7 @@ Because these are **control commands** with real impact on infrastructure, agent
 
 ## Implementation Roadmap
 
-1. **Phase 1 (Current)**: Repository skeleton + comprehensive command registry documentation + working `nexus-ctl` CLI with live mesh/system queries. Define command taxonomy.
+1. **Phase 1 (Current)**: Repository skeleton + comprehensive command registry documentation + working `nexus-ctl` CLI with live mesh/system queries + easy installer (`install.sh`). Define command taxonomy.
 2. **Phase 2**: Expand real implementations for mesh (Tenda, QNET, bandwidth, routes), agents (basic list/deploy), blockchain (status queries), hardware stubs. Add JSON output, config file support, logging.
 3. **Phase 3**: egui-based GUI / TUI with live monitoring, command history, favorites, dark theme matching Grok Launcher.
 4. **Phase 4**: Agent-native API + MCP tool definitions so swarms can self-orchestrate using these commands.
