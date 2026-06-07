@@ -23,29 +23,36 @@ cd nexus-control-panel
 
 ### 2. Install `nexus-ctl` (recommended)
 
+**Easiest way (using make):**
+
 ```bash
-# Recommended: user-local install (no sudo required)
+make install-user     # Installs to ~/.local/bin (no sudo)
+# make install        # System-wide (requires sudo)
+```
+
+**Alternative (using the install script directly):**
+
+```bash
 ./install.sh --user
-
-# Or system-wide (may require sudo)
 # sudo ./install.sh
+```
 
-# Then use it from anywhere:
+After installation you can run `nexus-ctl` from anywhere:
+
+```bash
 nexus-ctl --help
 nexus-ctl mesh status
 nexus-ctl system status
 ```
 
-### 3. Alternative: Run directly without installing
+### 3. Run without installing (quick test)
 
 ```bash
 chmod +x nexus-ctl
 ./nexus-ctl --help
-./nexus-ctl mesh status --node all
-./nexus-ctl system status
 ```
 
-**Live commands today**: `mesh status` and `system status` query real tools on your system (Yggdrasil + Docker). Other categories have rich, helpful placeholders.
+**Currently live**: `mesh status` and `system status` execute real queries against Yggdrasil and Docker on your system. All other commands have detailed, ready-to-implement specifications.
 
 ## Command Categories & Registry
 
@@ -167,31 +174,29 @@ Because these are **control commands** with real impact on infrastructure, agent
 
 ## Implementation Roadmap
 
-1. **Phase 1 (Current)**: Repository skeleton + comprehensive command registry documentation + working `nexus-ctl` CLI with live mesh/system queries + easy installer (`install.sh`). Define command taxonomy.
-2. **Phase 2**: Expand real implementations for mesh (Tenda, QNET, bandwidth, routes), agents (basic list/deploy), blockchain (status queries), hardware stubs. Add JSON output, config file support, logging.
-3. **Phase 3**: egui-based GUI / TUI with live monitoring, command history, favorites, dark theme matching Grok Launcher.
-4. **Phase 4**: Agent-native API + MCP tool definitions so swarms can self-orchestrate using these commands.
-5. **Phase 5**: Web dashboard, mobile companion, voice integration, full playbook automation engine.
-6. **Phase 6**: Enterprise features for Esslinger & Co. / Delaware C-Corp ops (multi-user, compliance reporting, billing integration, audit dashboards).
+1. **Phase 1 (Current)**: Repository skeleton + comprehensive command registry + working `nexus-ctl` CLI + `install.sh` + `Makefile`. Live mesh & system status queries.
+2. **Phase 2**: Expand real command implementations (more mesh features, agents, blockchain queries, hardware control). Add JSON output and config support.
+3. **Phase 3**: egui GUI/TUI version with dashboards and command palette.
+4. **Phase 4**: Agent-native MCP tool interface for swarm self-orchestration.
+5. **Phase 5**: Web dashboard + voice integration + full playbook engine.
+6. **Phase 6**: Enterprise / C-Corp features (multi-user, compliance, audit dashboards).
 
 ## Contributing
 
 To add a new command or category:
-
-1. Create or update the relevant `docs/<category>-commands.md`
-2. Add example usage and edge cases
-3. If implementing, add or improve code under `nexus-ctl` or `scripts/`
-4. Update this CONTROL-COMMANDS.md registry table
-5. Open PR with clear description of impact and security considerations
+1. Update the relevant section in this file
+2. Implement or improve the corresponding logic in `nexus-ctl` or `scripts/`
+3. Optionally add a Makefile target or improve `install.sh`
+4. Open a PR with clear description and security notes
 
 **Noble Principle**: All control interfaces must be designed with clarity, safety, sovereignty, and elegance — befitting a nobleman’s infrastructure.
 
 ## Related Projects
 
-- Grok Launcher: Rust + egui core (to be integrated as `hardware grok-launcher` subcommand)
+- Grok Launcher (Rust + egui)
 - xMesh / NovaNet / QNET mesh prototypes
 - Esslinger & Co. Delaware C-Corp infrastructure
-- Agent swarms and creative AI (Caitlin Hu roleplay sessions, Suno music, immersive stories)
+- Agent swarms and creative AI work
 
 **Maintained by**: Sven Norman Esslinger (SirLancelotEsq) — Esslinger Corporation
 
@@ -199,4 +204,4 @@ To add a new command or category:
 
 ---
 
-*This repository embodies the unified command layer for the Nexus vision: a self-sovereign, intelligent, interconnected mesh of networks, agents, value, and hardware.*
+*This repository now provides a complete, easy-to-install foundation for the unified Nexus command layer.*
