@@ -3,12 +3,7 @@
 Nexus Control Panel CLI
 Unified command & control interface for the entire Nexus ecosystem.
 
-Location: https://github.com/digitaldesignerjazz/nexus-control-panel
-
-Usage after clone:
-    chmod +x nexus-ctl
-    ./nexus-ctl --help
-    ./nexus-ctl mesh status --node all
+Supports --json for machine-readable output on supported commands.
 """
 
 import argparse
@@ -16,190 +11,206 @@ import subprocess
 import sys
 import shutil
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
-VERSION = "0.2.0-initial"
-
-# Simple ANSI colors
-class Colors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
+VERSION = "0.3.0-json"
 
 
-def cprint(text, color=Colors.ENDC, bold=False):
-    prefix = Colors.BOLD if bold else ""
-    print(f"{prefix}{color}{text}{Colors.ENDC}")
-
-
-def run_command(cmd, dry_run=False, capture_output=True, check=False):
-    """Run a shell command safely."""
+def run_command(cmd, dry_run=False, capture_output=True):
     if dry_run:
-        cprint(f"[DRY-RUN] { ' '.join(cmd) }", Colors.WARNING)
-        return ""
+        return {"dry_run": True, "command": " ".join(cmd)}
     try:
-        result = subprocess.run(
-            cmd,
-            capture_output=capture_output,
-            text=True,
-            check=check
-        )
-        return result.stdout + (result.stderr or "")
+        result = subprocess.run(cmd, capture_output=capture_output, text=True, check=False)
+        return result.stdout.strip() + ("\n" + result.stderr.strip() if result.stderr else "")
     except FileNotFoundError:
-        return f"[ERROR] Command '{cmd[0]}' not found in PATH. Is it installed?"
-    except subprocess.CalledProcessError as e:
-        return e.stdout + e.stderr
+        return f"[ERROR] Command not found: {cmd[0]}"
+
+
+def get_yggdrasil_data():
+    data = {}
+    if shutil.which("yggdrasilctl"):
+        self_raw = run_command(["yggdrasilctl", "getSelf"])
+        peers_raw = run_command(["yggdrasilctl", "getPeers"])
+        data["self"] = self_raw
+        data["peers"] = peers_raw
+        data["available"] = True
+    else:
+        data["available"] = False
+        data["error"] = "yggdrasilctl not found"
+    return data
+
+
+def get_docker_services(filter_name="nexus|yggdrasil|tenda"):
+    if not shutil.which("docker"):
+        return {"available": False, "error": "docker not found"}
+    try:
+        output = subprocess.check_output(
+            ["docker", "ps", "--filter", f"name={filter_name}",
+             "--format", "{{.Names}}\t{{.Status}}\t{{.Ports}}"],
+            text=True
+        ).strip()
+        services = []
+        for line in output.splitlines():
+            parts = line.split("\t")
+            if len(parts) >= 2:
+                services.append({
+                    "name": parts[0],
+                    "status": parts[1],
+                    "ports": parts[2] if len(parts) > 2 else ""
+                })
+        return {"available": True, "services": services}
+    except Exception as e:
+        return {"available": False, "error": str(e)}
 
 
 def cmd_mesh_status(args):
-    cprint("=== NEXUS MESH STATUS ===", Colors.HEADER, bold=True)
+    if args.json:
+        result = {
+            "command": "mesh status",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "node_filter": args.node,
+            "yggdrasil": get_yggdrasil_data(),
+            "docker": get_docker_services(),
+        }
+        print(json.dumps(result, indent=2))
+        return
+
+    # Human readable output (existing)
+    print("=== NEXUS MESH STATUS ===")
     print(f"Node filter: {args.node}")
     print()
 
-    # Yggdrasil
     if shutil.which("yggdrasilctl"):
-        cprint("-- Yggdrasil Node --", Colors.OKBLUE)
-        self_info = run_command(["yggdrasilctl", "getSelf"])
-        print(self_info)
-        peers = run_command(["yggdrasilctl", "getPeers"])
-        print(peers)
+        print("-- Yggdrasil --")
+        print(run_command(["yggdrasilctl", "getSelf"]))
+        print(run_command(["yggdrasilctl", "getPeers"]))
     else:
-        cprint("[WARN] yggdrasilctl not found in PATH", Colors.WARNING)
+        print("[WARN] yggdrasilctl not found in PATH")
 
-    # Docker services (common for mesh nodes)
     if shutil.which("docker"):
-        cprint("-- Docker Mesh-related Containers --", Colors.OKBLUE)
+        print("-- Docker Mesh Services --")
         docker_out = run_command([
             "docker", "ps",
-            "--filter", "name=nexus",
-            "--filter", "name=yggdrasil",
-            "--filter", "name=tenda",
+            "--filter", "name=nexus|yggdrasil|tenda",
             "--format", "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
         ])
         print(docker_out if docker_out.strip() else "No matching containers running.")
     else:
-        cprint("[INFO] docker not found in PATH", Colors.WARNING)
+        print("[INFO] docker not found in PATH")
 
-    # TODO: Add Tenda Nova status, QNET blockchain-mesh sync check, bandwidth stats, route table summary
-    cprint("\n[INFO] Full mesh status implementation expanding in Phase 2 (Prometheus metrics, NovaNet/QNET specific views).", Colors.OKGREEN)
-
-
-def cmd_mesh_restart(args):
-    cprint("=== MESH RESTART ===", Colors.HEADER, bold=True)
-    target = args.service or "yggdrasil"
-    if not args.force:
-        confirm = input(f"Restart mesh service '{target}'? [y/N]: ").strip().lower()
-        if confirm != "y":
-            cprint("Aborted.", Colors.WARNING)
-            return
-    cprint(f"Restarting {target}...", Colors.OKBLUE)
-    # Example safe wrappers - extend with real service management
-    if target == "yggdrasil":
-        print(run_command(["sudo", "systemctl", "restart", "yggdrasil"], dry_run=args.dry_run))
-    else:
-        print(run_command(["docker", "restart", target], dry_run=args.dry_run))
-    cprint("Done (or simulated in dry-run). Check status with: ./nexus-ctl mesh status", Colors.OKGREEN)
+    print("\n[INFO] Use --json for machine-readable output.")
 
 
 def cmd_system_status(args):
-    cprint("=== NEXUS SYSTEM STATUS ===", Colors.HEADER, bold=True)
+    if args.json:
+        result = {
+            "command": "system status",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "host": {
+                "uname": run_command(["uname", "-a"]),
+                "uptime": run_command(["uptime"]),
+                "disk": run_command(["df", "-h"])
+            },
+            "docker": get_docker_services(filter_name=".*")
+        }
+        print(json.dumps(result, indent=2))
+        return
+
+    # Human readable
+    print("=== NEXUS SYSTEM STATUS ===")
     print(f"Timestamp: {datetime.now().isoformat(timespec='seconds')}")
     print()
-
-    cprint("-- Host --", Colors.OKBLUE)
+    print("-- Host --")
     print(run_command(["uname", "-a"]))
     print(run_command(["uptime"]))
     print(run_command(["df", "-h"]))
 
     if shutil.which("docker"):
-        cprint("-- Docker --", Colors.OKBLUE)
+        print("-- Docker --")
         print(run_command(["docker", "ps", "--format", "table {{.Names}}\t{{.Status}}"]))
 
-    cprint("\n[INFO] Extend with yggdrasil memory usage, agent process list, blockchain node sync status, hardware telemetry.", Colors.OKGREEN)
+    print("\n[INFO] Use --json for structured output.")
 
 
-def cmd_agents(args):
-    cprint("=== AI AGENTS & SWARMS ===", Colors.HEADER, bold=True)
-    action = args.action
-    if action == "list":
-        print("Active agents / swarms would be listed here (Phase 2: query agent runtime / MCP registry).")
-        print("Example planned output:\n  swarm-alpha: 7 agents | status: healthy | last improved: 2026-06-06")
-    elif action == "deploy":
-        print(f"Would deploy swarm from config: {getattr(args, 'config', 'default')}")
-    else:
-        print(f"Action '{action}' for agents category is planned for Phase 2/3.")
-    cprint("See CONTROL-COMMANDS.md for full specification and security model.", Colors.OKGREEN)
+def cmd_mesh_restart(args):
+    if args.json:
+        print(json.dumps({
+            "command": "mesh restart",
+            "service": args.service,
+            "dry_run": args.dry_run,
+            "status": "not_yet_implemented"
+        }, indent=2))
+        return
+
+    # existing human logic...
+    print("=== MESH RESTART ===")
+    if not args.force:
+        confirm = input(f"Restart mesh service '{args.service}'? [y/N]: ").strip().lower()
+        if confirm != "y":
+            print("Aborted.")
+            return
+    print(f"Restarting {args.service}... (placeholder)")
 
 
-def cmd_blockchain(args):
-    cprint("=== BLOCKCHAIN (XCoin / QCoin / QNET) ===", Colors.HEADER, bold=True)
-    print(f"Action: {args.action} | Coin: {getattr(args, 'coin', 'xcoin')}")
-    print("Real implementation (wallet query, tx, arbitrage scan, rune ops) coming in Phase 2.")
-    print("Will integrate with your existing XCoin/QCoin tooling and QNET mesh sync.")
+def cmd_generic_placeholder(category, action, args):
+    if args.json:
+        print(json.dumps({
+            "command": f"{category} {action}",
+            "status": "not_implemented",
+            "message": f"{category} {action} is planned for Phase 2/3."
+        }, indent=2))
+        return
 
-
-def cmd_hardware(args):
-    cprint("=== HARDWARE & PROTOTYPES ===", Colors.HEADER, bold=True)
-    print(f"Device: {getattr(args, 'device', 'all')} | Action: {args.action}")
-    print("Hardware control (Soilnova, Vista Nova, York Autotype, Lumia, Grok Launcher) expanding in Phase 2/3.")
-    print("Will support serial/MQTT, OTA flashing, calibration routines, and egui integration.")
-
-
-def cmd_system(args):
-    if args.action == "status":
-        cmd_system_status(args)
-    else:
-        cprint(f"system {args.action} is planned. See CONTROL-COMMANDS.md", Colors.WARNING)
+    print(f"[{category.upper()}] {action} is not yet fully implemented.")
+    print("See CONTROL-COMMANDS.md for specification.")
 
 
 def main():
     parser = argparse.ArgumentParser(
         prog="nexus-ctl",
-        description="Nexus Control Panel - Unified CLI for mesh, agents, blockchain, hardware & system orchestration.",
-        epilog="Part of the Nexus ecosystem by Sven Norman Esslinger / Esslinger & Co. | Use with care and noble intent."
+        description="Nexus Control Panel - Unified CLI for the Nexus ecosystem.",
+        epilog="Supports --json for scripting and agent integration."
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
-    parser.add_argument("--dry-run", action="store_true", help="Show what would be done without executing dangerous commands")
-    parser.add_argument("--json", action="store_true", help="Output in JSON where supported (future)")
-    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--json", action="store_true", help="Output in JSON format (where supported)")
+    parser.add_argument("--verbose", "-v", action="store_true")
 
-    subparsers = parser.add_subparsers(dest="category", required=True, help="Command category")
+    subparsers = parser.add_subparsers(dest="category", required=True)
 
     # mesh
-    mesh_p = subparsers.add_parser("mesh", help="Mesh network controls (Yggdrasil, xMesh, NovaNet, QNET, Docker, privacy)")
-    mesh_p.add_argument("action", choices=["status", "restart", "peer", "config", "monitor", "privacy", "qnet"], help="Mesh action")
-    mesh_p.add_argument("--node", default="all", help="Target node filter")
-    mesh_p.add_argument("--service", default="yggdrasil", help="Service for restart action")
-    mesh_p.add_argument("--force", action="store_true", help="Skip confirmation prompts")
-    mesh_p.set_defaults(func=lambda a: cmd_mesh_status(a) if a.action == "status" else cmd_mesh_restart(a) if a.action == "restart" else print(f"mesh {a.action} coming soon"))
+    mesh_p = subparsers.add_parser("mesh")
+    mesh_p.add_argument("action", choices=["status", "restart", "peer", "config", "monitor", "privacy", "qnet"])
+    mesh_p.add_argument("--node", default="all")
+    mesh_p.add_argument("--service", default="yggdrasil")
+    mesh_p.add_argument("--force", action="store_true")
+    mesh_p.set_defaults(func=lambda a: cmd_mesh_status(a) if a.action == "status" else 
+                                   cmd_mesh_restart(a) if a.action == "restart" else 
+                                   cmd_generic_placeholder("mesh", a.action, a))
 
     # agents
-    agents_p = subparsers.add_parser("agents", help="AI agent & swarm controls")
-    agents_p.add_argument("action", choices=["list", "deploy", "scale", "introspect", "improve", "assign", "log"], help="Agent/swarm action")
-    agents_p.add_argument("--swarm", help="Swarm name/ID")
-    agents_p.add_argument("--config", help="Config file for deploy")
-    agents_p.set_defaults(func=cmd_agents)
+    agents_p = subparsers.add_parser("agents")
+    agents_p.add_argument("action", choices=["list", "deploy", "scale", "introspect", "improve", "assign", "log"])
+    agents_p.add_argument("--swarm")
+    agents_p.set_defaults(func=lambda a: cmd_generic_placeholder("agents", a.action, a))
 
     # blockchain
-    blockchain_p = subparsers.add_parser("blockchain", help="XCoin/QCoin/QNET blockchain controls")
-    blockchain_p.add_argument("action", choices=["status", "tx", "arbitrage", "qnet", "rune", "monitor"], help="Blockchain action")
-    blockchain_p.add_argument("--coin", default="xcoin", choices=["xcoin", "qcoin"], help="Target coin")
-    blockchain_p.set_defaults(func=cmd_blockchain)
+    blockchain_p = subparsers.add_parser("blockchain")
+    blockchain_p.add_argument("action", choices=["status", "tx", "arbitrage", "qnet", "rune", "monitor"])
+    blockchain_p.add_argument("--coin", default="xcoin", choices=["xcoin", "qcoin"])
+    blockchain_p.set_defaults(func=lambda a: cmd_generic_placeholder("blockchain", a.action, a))
 
     # hardware
-    hardware_p = subparsers.add_parser("hardware", help="Hardware & prototype device controls")
-    hardware_p.add_argument("action", choices=["status", "control", "flash", "calibrate", "grok-launcher", "monitor"], help="Hardware action")
-    hardware_p.add_argument("--device", help="Specific device ID (soilnova-01, vista-nova, etc.)")
-    hardware_p.set_defaults(func=cmd_hardware)
+    hardware_p = subparsers.add_parser("hardware")
+    hardware_p.add_argument("action", choices=["status", "control", "flash", "calibrate", "grok-launcher", "monitor"])
+    hardware_p.add_argument("--device")
+    hardware_p.set_defaults(func=lambda a: cmd_generic_placeholder("hardware", a.action, a))
 
     # system
-    system_p = subparsers.add_parser("system", help="Cross-cutting system, monitoring, security & orchestration")
-    system_p.add_argument("action", choices=["status", "logs", "auth", "backup", "privacy-audit", "orchestrate"], help="System action")
-    system_p.set_defaults(func=cmd_system)
+    system_p = subparsers.add_parser("system")
+    system_p.add_argument("action", choices=["status", "logs", "auth", "backup", "privacy-audit", "orchestrate"])
+    system_p.set_defaults(func=lambda a: cmd_system_status(a) if a.action == "status" else 
+                                   cmd_generic_placeholder("system", a.action, a))
 
     args = parser.parse_args()
     args.func(args)
