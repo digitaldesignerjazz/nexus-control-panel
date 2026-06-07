@@ -1,20 +1,24 @@
-.PHONY: help install install-user uninstall
+.PHONY: help install install-user install-completions uninstall
 
 help:
 	@echo "Nexus Control Panel - Available make targets:"
 	@echo ""
-	@echo "  make install-user    Install nexus-ctl to ~/.local/bin (recommended, no sudo)"
-	@echo "  make install         Install system-wide to /usr/local/bin (requires sudo)"
-	@echo "  make uninstall       Remove the installed nexus-ctl binary"
-	@echo "  make help            Show this help message"
+	@echo "  make install-user       Install nexus-ctl to ~/.local/bin (recommended)"
+	@echo "  make install            Install system-wide (requires sudo)"
+	@echo "  make install-completions  Install bash + zsh shell completions"
+	@echo "  make uninstall          Remove binary and completions"
+	@echo "  make help               Show this help"
 	@echo ""
-	@echo "After installation, use: nexus-ctl --help"
+	@echo "Recommended: make install-user install-completions"
 
 install:
 	@./install.sh
 
 install-user:
 	@./install.sh --user
+
+install-completions:
+	@./install.sh --user --completions
 
 uninstall:
 	@./install.sh --uninstall
